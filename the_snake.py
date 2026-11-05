@@ -94,3 +94,170 @@ class Apple(GameObject):
         """Отрисовывает яблоко на игровом поле."""
         rect = pygame.Rect(self.position, (GRID_SIZE, GRID_SIZE))
         pygame.draw.rect(screen, self.body_color, rect)
+        pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
+
+
+class Snake(GameObject):
+    """Представляет змейку, управляет её движением и состоянием."""
+
+    def __init__(self):
+        """Создаёт змейку с начальной длиной и направлением движения."""
+        super().__init__()
+        self.body_color = SNAKE_COLOR
+        self.reset(initial=True)
+
+    def get_head_position(self):
+        """Возвращает текущие координаты головы змейки.
+
+        Returns:
+            tuple: Координаты головы в формате (x, y).
+        """
+        return self.positions[0]
+
+    def get_next_head_position(self):
+        """Вычисляет следующую позицию головы змейки.
+
+        Учитывает текущее направление движения и переход
+        через границы игрового поля.
+
+        Returns:
+            tuple: Координаты следующей позиции головы (x, y).
+        """
+        head = self.get_head_position()
+        new_x = (head[0] + self.direction[0] * GRID_SIZE) % SCREEN_WIDTH
+        new_y = (head[1] + self.direction[1] * GRID_SIZE) % SCREEN_HEIGHT
+        return (new_x, new_y)
+
+    def reset(self, initial=False):
+        """Сбрасывает змейку до одного сегмента в центре игрового поля.
+
+        Args:
+            initial (bool): Если True, задаёт направление вправо.
+                Иначе выбирает случайное направление.
+        """
+        self.length = 1
+        self.positions = [self.position]
+        if initial:
+            self.direction = RIGHT
+        else:
+            self.direction = choice([UP, DOWN, LEFT, RIGHT])
+        self.next_direction = None
+        self.last = None
+
+    def move(self):
+        """Перемещает змейку на одну клетку в текущем направлении.
+
+        Добавляет новую голову и удаляет хвост, если количество
+        сегментов превышает установленную длину змейки.
+        """
+        new_head = self.get_next_head_position()
+        self.positions.insert(0, new_head)
+        self.last = None
+        if len(self.positions) > self.length:
+            self.last = self.positions.pop()
+
+    def draw(self):
+        """Отрисовывает все сегменты змейки на игровом поле."""
+        for position in self.positions:
+            rect = pygame.Rect(position, (GRID_SIZE, GRID_SIZE))
+            pygame.draw.rect(screen, self.body_color, rect)
+            pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
+
+    def update_direction(self):
+        """Применяет новое направление движения, если оно задано."""
+        if self.next_direction:
+            self.direction = self.next_direction
+            self.next_direction = None
+
+
+def handle_keys(game_object, speed):
+    """Обрабатывает управление, изменение скорости и выход из игры.
+
+    Args:
+        game_object (Snake): Управляемая игроком змейка.
+        speed (int): Текущая скорость игры.
+
+    Returns:
+        int: Обновлённая скорость игры.
+    """
+    directions = {
+        pygame.K_UP: UP,
+        pygame.K_DOWN: DOWN,
+        pygame.K_LEFT: LEFT,
+        pygame.K_RIGHT: RIGHT,
+    }
+    opposite_directions = {
+        UP: DOWN,
+        DOWN: UP,
+        LEFT: RIGHT,
+        RIGHT: LEFT,
+    }
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            raise SystemExit
+
+        if event.type != pygame.KEYDOWN:
+            continue
+
+        if event.key == pygame.K_ESCAPE:
+            pygame.quit()
+            raise SystemExit
+
+        if event.key in SPEED_LEVELS:
+            speed = SPEED_LEVELS[event.key]
+
+        new_direction = directions.get(event.key)
+        if (
+            new_direction is not None
+            and game_object.next_direction is None
+            and new_direction != opposite_directions[game_object.direction]
+        ):
+            game_object.next_direction = new_direction
+
+    return speed
+
+
+def main():
+    """Запускает игру и управляет её основным циклом.
+
+    Создаёт змейку и яблоко, обрабатывает управление, движение,
+    поедание яблок, столкновения и обновление игрового экрана.
+    """
+    pygame.init()
+    snake = Snake()
+    apple = Apple(snake.positions)
+    speed = DEFAULT_SPEED
+
+    while True:
+        clock.tick(speed)
+        speed = handle_keys(snake, speed)
+        snake.update_direction()
+
+        ate_apple = snake.get_next_head_position() == apple.position
+
+        if ate_apple:
+            snake.length += 1
+
+        snake.move()
+
+        if snake.get_head_position() in snake.positions[1:]:
+            snake.reset()
+            apple.randomize_position(snake.positions)
+
+        elif len(snake.positions) == GRID_WIDTH * GRID_HEIGHT:
+            snake.reset()
+            apple.randomize_position(snake.positions)
+
+        elif ate_apple:
+            apple.randomize_position(snake.positions)
+
+        screen.fill(BOARD_BACKGROUND_COLOR)
+        snake.draw()
+        apple.draw()
+        pygame.display.update()
+
+
+if __name__ == '__main__':
+    main()
