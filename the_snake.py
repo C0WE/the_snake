@@ -61,7 +61,7 @@ class GameObject:
 class Apple(GameObject):
     """Представляет яблоко, которое змейка может съесть."""
 
-    def __init__(self, occupied_positions):
+    def __init__(self, occupied_positions = None):
         """Создаёт яблоко в случайной свободной клетке игрового поля.
 
         Args:
